@@ -1,0 +1,41 @@
+# ==========================================================
+# 创作台 · 只上传代码，本地数据与密钥一律入库前隔离
+# 仓库根目录请设在 studio/ 这一层，不要在上一层 git init
+# ==========================================================
+
+# 1) 整个 data/ 都是运行时数据，绝不上传
+#    studio.db / .db-wal / .db-shm  = 全部卡片、作品、草稿、人物设定
+#    weread-config.json             = 微信读书 API Key（明文）
+#    mail-config.json               = 邮箱 IMAP 授权码（明文）
+#    目录无需提交：db.js 在启动时会自动创建
+data/
+
+# 2) 双保险：即使有人把文件挪出 data/ 也不入库
+*.db
+*.db-wal
+*.db-shm
+weread-config.json
+mail-config.json
+
+# 3) 成稿、素材、大纲等个人内容（独立使用本仓库时可能建在仓库内）
+01-大纲/
+02-草稿/
+03-成稿/
+04-素材库/
+05-归档/
+templates/
+project.config.json
+
+# 4) 备份页导出的全量 JSON / 手动备份
+*.export.json
+export-*.json
+backup-*.json
+导出*.json
+
+# 5) 运行时与本机临时文件
+node_modules/
+*.log
+_chrome_tmp/
+_*.png
+.DS_Store
+Thumbs.db

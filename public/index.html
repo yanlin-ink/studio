@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>创作台 · Writing Studio</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">创作台</div>
+      <div class="brand-sub">Writing Studio</div>
+    </div>
+    <nav>
+      <div class="nav-label">日常</div>
+      <button class="nav-item" data-view="inbox">收件箱 <span class="badge" id="badge-inbox">0</span></button>
+      <button class="nav-item" data-view="cards">卡片库</button>
+      <button class="nav-item" data-view="works">作品</button>
+      <button class="nav-item" data-view="review">回顾</button>
+      <button class="nav-item" data-view="insights">洞察</button>
+      <button class="nav-item" data-view="weread">微信读书</button>
+      <button class="nav-item" data-view="mail">手机同步</button>
+      <div class="nav-label">按类型</div>
+      <div id="type-nav"></div>
+      <div class="nav-label">系统</div>
+      <button class="nav-item" data-view="backup">备份与导入</button>
+    </nav>
+    <div class="side-foot">
+      <div id="side-stats"></div>
+      <div class="db-path" id="db-path"></div>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div class="capture-wrap">
+        <input id="capture-input" autocomplete="off" placeholder="随手记一条…  可写 #标签 @作品 ^来源，回车保存">
+        <select id="capture-type">
+          <option value="inbox">未分类</option>
+          <option value="reading">读书</option>
+          <option value="material">素材</option>
+          <option value="idea">小说思路</option>
+          <option value="reference">资料</option>
+          <option value="character">人物</option>
+          <option value="scene">场景对话</option>
+          <option value="other">其他</option>
+        </select>
+        <button id="capture-btn" class="btn-accent">记下</button>
+      </div>
+      <div class="search-wrap"><input id="global-search" placeholder="搜索内容 / 来源 / 标签，回车"></div>
+      <span id="toast" class="toast"></span>
+    </header>
+    <section id="content" class="content"></section>
+  </main>
+</div>
+
+<div id="modal-root" class="modal-root" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

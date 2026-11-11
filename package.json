@@ -1,0 +1,13 @@
+{
+  "name": "writing-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "本地创作台：卡片、大纲、人物、草稿与多通道随手记同步",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "imapflow": "^2.11.0",
+    "mailparser": "^3.14.2"
+  }
+}

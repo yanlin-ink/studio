@@ -1,0 +1,256 @@
+创作台 · 使用说明
+==================
+
+一、启动
+  双击「启动.bat」，浏览器会自动打开 http://127.0.0.1:7373
+  关闭那个黑色命令行窗口 = 停止服务。
+  也可以命令行执行：node server.js  （可用 PORT=8080 改端口）
+
+二、环境
+  需要 Node.js 22.5 以上（用内置 node:sqlite，22.5+ 才稳定提供）。
+  核心服务无需编译、无需联网。只有「手机同步」页的邮件通道用到
+  imapflow + mailparser，首次使用前在本目录执行一次 npm install 即可
+  （node_modules 已由 .gitignore 排除）。微信读书同步与随手记粘贴不依赖这些包。
+  只监听 127.0.0.1，不对外网开放。
+
+三、数据在哪
+  data/studio.db          主数据库（SQLite，单文件，可直接复制备份）
+  data/studio.db-wal      预写日志（服务运行时存在，属正常文件）
+  备份页可一键导出全量 JSON，也可把 JSON 导回来。
+  注意：服务运行时新数据可能还留在 -wal 里。要直接复制 .db 做冷备份，
+  请先关闭服务；不停服务就用备份页的「导出全量 JSON」，最稳妥。
+
+四、目录关系
+  ..\01-大纲 / 02-草稿 / 03-成稿 / 04-素材库 / 05-归档   仍是文件层，保留不动
+  ..\index.html                                        上一版的本地阅读台
+  studio\                                             本工具（服务 + 界面 + 数据库）
+  备份页的「扫描本地成稿」会把 03-成稿 里的 .md 导入成作品与草稿，不改动原文件。
+
+五、日常怎么用
+  1. 顶部输入框随手记，回车即存。行内可写：
+       #标签  @作品名  ^来源
+     例：#徐州 ^三国志·先主传 垂手下膝，顾自见其耳
+     不写也完全没关系，之后靠搜索找得回来。
+  2. 收件箱按时间倒序，允许永远不整理；要归类时点卡片改类型、标签。
+  3. 作品页：左栏大纲与人物，中间草稿编辑器，右栏挂素材。
+     人物卡是固定字段（欲望/恐惧/秘密/口头禅/关系/弧光），不用面对空白页。
+  4. 回顾页随机翻旧卡片，让记过的东西重新浮上来。
+
+六、卡片类型
+  inbox 未分类 / reading 读书 / material 素材 / idea 小说思路
+  reference 资料 / character 人物 / scene 场景对话 / other 其他
+
+七、接口（便于以后扩展或接别的客户端）
+  GET    /api/stats            统计
+  GET    /api/cards            卡片列表，支持 q / type / tag / work / limit
+  POST   /api/cards            新建卡片
+  PATCH  /api/cards/:id        修改卡片
+  DELETE /api/cards/:id        删除卡片
+  POST   /api/cards/:id/link   挂到作品
+  DELETE /api/cards/:id/link   取消挂载
+  GET    /api/tags             标签及计数
+  GET    /api/review?n=3       随机回顾
+  GET/POST /api/works          作品列表 / 新建（列表含 word_count / chapter_count / pct）
+  GET/PATCH/DELETE /api/works/:id
+                              详情含 chapters / versions / progress
+                              progress = 目标、总字数、章节数、今日净增、连续天数、
+                              近 14 天码字、章节状态分布、完成百分比
+  POST   /api/works/:id/outline|characters|drafts
+  PATCH/DELETE /api/outline/:id|/api/characters/:id|/api/drafts/:id
+  POST   /api/drafts/:id/save  写作台自动保存 {content, title, synopsis}
+                              一次请求完成存正文 + 按字数差值记当日码字日志
+  GET    /api/works/:id/export.md   按章节顺序导出全书 Markdown
+  GET    /api/export           全量导出
+  POST   /api/import           合并导入
+  POST   /api/scan-local       扫描 03-成稿 目录
+  GET    /api/weread/status    Key 配置状态
+  POST   /api/weread/config    保存 API Key
+  POST   /api/weread/test      验证连接
+  GET    /api/weread/books     有笔记的书单
+  POST   /api/weread/sync      同步划线与想法 {bookIds, dryRun}
+  POST   /api/weread/paste     粘贴导入 {text, book, dryRun}
+  POST   /api/weread/ideas     同步微信读书随手记 {marker, mode, dryRun}
+                              mode: private / marker / private+marker / all
+                              返回含 books, totalReviews, privateAll, latestIdeaAt, hint
+  GET    /api/mail/status      邮箱配置状态与服务商预设
+  POST   /api/mail/config      保存邮箱配置（授权码只写本机）
+  POST   /api/mail/test        测试 IMAP 连接
+  POST   /api/mail/sync        同步标记邮件 {dryRun}
+  POST   /api/mail/paste       随手记粘贴 {text, type, splitMode, dryRun}
+  GET    /api/insights         洞察分析 {range: all|365|90|30}
+  GET    /api/insights/report  导出 Markdown 报告（Content-Type: text/markdown）
+
+八、微信读书对接（官方通道）
+  微信读书 2026 年上线了官方 Agent API Gateway，不用抓 Cookie、不用逆向：
+    入口   POST https://i.weread.qq.com/api/agent/gateway
+    鉴权   Authorization: Bearer <API Key>，Key 格式 wrk- 开头
+    取 Key https://weread.qq.com/r/weread-skills  （微信扫码，本人操作）
+    必带   body 内 skill_version: "1.0.5"，业务参数与 api_name 平铺
+  本工具只读调用 /user/notebooks、/book/bookmarklist、/review/list/mine，
+  拉取「划线 + 想法/点评」并转成 reading 类型卡片：
+    来源 = 《书名》 · 章节，标签 = 微信读书,划线/想法,书名，
+    时间沿用微信读书原始时间戳，external_id 去重，重复同步不会产重复卡片。
+  官方限制：书签只有数量、不能导出内容，所以不同步书签。
+  API Key 只保存在本机 data/weread-config.json，明文不回传页面，只显示掩码；
+  除微信读书官方网关外不会向任何第三方发送数据。
+  不想配 Key 时，可用页面第 3 块「粘贴导入」：从 App / 网页版复制笔记文本贴进来即可，
+  支持《书名》行、章节行、◆ / > 划线行、想法：行，先预览再导入。
+
+九、上传到 GitHub（只传代码，不传数据）
+  仓库根目录 = 本 studio/ 目录，不要在上一层「文章」目录 git init。
+  会上传的只有 14 个文件：server.js / db.js / schema.sql / weread.js / mail.js /
+    insights.js / public/ 三个文件 / 启动.bat / 说明.txt / .gitignore /
+    package.json / package-lock.json
+  绝不上传（已由 .gitignore 排除）：
+    data/ 整个目录 —— 数据库、WAL 日志、微信读书 API Key、邮箱授权码；
+    node_modules/ —— 执行一次 npm install 即可重建；
+    01~05 目录、templates、project.config.json、根 index.html ——
+    成稿、素材、大纲，且根 index.html 内嵌了小说全文；
+    备份页导出的全量 JSON。
+  首次发布：
+    cd studio
+    git init
+    git add -A
+    git status      # 确认列表里只有上面那 14 个文件，没有 data/
+    git commit -m "init: 创作台"
+    git branch -M main
+    git remote add origin <你的仓库地址>
+    git push -u origin main
+  注意：一定要先放好 .gitignore 再 git add。若已经误提交过，
+  单纯删除文件没用——密钥会留在 git 历史里，需重写历史并立即去
+  微信读书重新生成 API Key。
+  clone 下来首次运行会自动新建空的 data/，无需任何示例数据；
+  「扫描本地成稿」默认找上一层 03-成稿，独立仓库可把成稿放在仓库内，
+  或用 CONTENT_ROOT 环境变量指向别的目录。
+
+十、手机同步（左侧「手机同步」页）
+  思路：手机不用装专门 App、电脑不用常在线、不用开端口或公网穿透。
+  在外面随手记下来，回到电脑点一下「同步」，数据才落到本机 SQLite。
+
+  通道 0 · 微信读书的书里发「私密想法」（最省事，零额外配置）
+    1) 手机微信读书，在某本书的阅读页写想法，把可见范围设为「私密」。
+       私密本身就是标记，不必再打 #记；公开想法也可以开头带 #记 被挑中。
+    2) 电脑「手机同步」页第 0 块选同步范围（默认「私密 + 带 #记」），
+       点「预览」（不写库）或「同步随手记」。范围可选：
+       私密想法 / 带标记词 / 两者都要 / 全部个人想法（已导入的自动跳过）。
+    结果：命中想法收成 idea（小说思路）卡片，来源带书名与章节，
+    标签「微信读书想法,随手记,私密或公开,书名」。
+    external_id 用 weread:idea: 前缀，与常规读书卡片分开存；
+    同一条想法可以既作读书笔记、又作随手记，反复同步不会重复。
+
+    【重要边界：独立帖子拿不到】
+    官方 Agent API 共 19 个接口，全部是书籍维度：
+      /user/notebooks（有笔记的书）→ /book/bookmarklist（划线）
+      → /review/list/mine（个人想法/点评，必须按 bookid 查）。
+    没有任何「帖子 / 动态 / 想法流」接口。所以在想法区、书评广场
+    「单独发帖」（含私密帖子）不会出现在这些回包里，无法自动同步；
+    这类内容请复制帖子文本走通道 2 的粘贴导入。
+    只有发在书里的想法才属于个人笔记，能被 /review/list/mine 返回。
+
+    预览与同步都会回传：扫描书数、想法总数、私密想法数、最新想法日期。
+    若命中 0 条且最新日期明显偏旧，说明官方接口里没有新内容
+    （帖子不在覆盖范围，或官方索引有同步延迟），不是筛选条件写错。
+
+    官方回包带 isPrivate 字段，据此识别私密；content 为空时回退 htmlContent。
+    /review/list/mine 的 hasMore 与 synckey 在单页装不下时不可靠（实测
+    totalCount=110、count=100 只回 100 条且 hasMore=0，synckey 翻页回 0 条），
+    因此按 totalCount 自适应放大 count 一次拿全，避免静默漏掉尾部想法。
+
+  通道 1 · 邮件当投递口（一次性配置）
+    1) QQ 邮箱网页版 → 设置 → 账号与安全 → 开启 IMAP/SMTP → 短信验证
+       → 拿到 16 位授权码（不是 QQ 密码）。服务器 imap.qq.com，端口 993 SSL。
+       163 / Outlook / Gmail 也内置了预设；Gmail 与 Outlook 通常用应用专用密码。
+    2) 「手机同步」页第 1 块填邮箱与授权码 → 保存 → 测试连接。
+       授权码只写 data/mail-config.json（已在 .gitignore 内），页面只显示掩码。
+    3) 手机用系统自带邮件 App 发信给自己：主题里带标记词（默认 #记），
+       或直接把想法写在主题里、正文留空；也可以在邮件里加星标。
+    4) 第 2 块选匹配方式（标记词或星标 / 仅星标 / 全部自发邮件）、回看天数、
+       存成什么卡片，点「预览」或「同步到卡片」。
+    只扫描「自己发给自己的邮件」，不收他人来信；按邮件 UID 去重，反复点不重复。
+    默认只读、不改动邮箱；需要清理可勾选「同步后把邮件标记为已读」。
+    首次使用邮件通道前执行一次 npm install（imapflow + mailparser）。
+
+  通道 2 · 随手记粘贴（零配置兜底）
+    手机记在记事本 / 微信文件传输助手 / 备忘录，回家全选复制贴进第 3 块。
+    有空行就按段切，没空行就按行切；自动去掉 - / • / 1. 等项目符号与分隔线，
+    支持 #标签 @作品 ^来源（@作品 会自动建作品并挂上）。
+    按内容哈希去重，重复粘贴不会重复入库；可先预览再导入。
+
+  共同点：三条通道都走同一个卡片池，先预览再写入，按来源 ID 去重。
+  同步是「回来点一下」，不是实时推送；电脑关机时手机照常记，不会丢。
+
+十一、随手记入口与「洞察」分析
+  随手记入口（收件箱 / 卡片库页顶部）
+    页面内容区最上方是醒目的多行输入区，不用先想分类；顶栏原有的单行框仍可在
+    任意页面使用。保存后焦点留在输入框，可以连着记；切换筛选或视图时，未提交
+    的半句话会保留，不会丢。
+    快捷键：N（不在输入态时）开始记、/ 聚焦搜索、Ctrl/⌘ + Enter 在多行框内提交。
+    行内语法 #标签 @作品 ^来源 仍可省略，之后靠搜索找回来。
+
+  「洞察」页（左侧「日常」组）
+    目的：把读书与笔记记录做成可反复使用的分析功能，而不是一张静态报表。
+    明确不做 AI 天赋测评 / 能力雷达打分 / 知识图谱——数据只能显示注意力去向，
+    不能替本人判断天赋；每条结论都附带可核对的依据。
+
+    1) 时间范围：全部 / 近一年 / 近 90 天 / 近 30 天。按素材原始记录时间切分
+       （微信读书导入的卡片沿用原书时间戳，不是导入时间）；选定范围后会与紧邻的
+       前一个等长时段对比，给出卡片 / 想法 / 书籍的变化、升温降温词、新出现的书。
+       两期样本不足 5 张时会明确提示，不做过度解读。
+    2) 结论可下钻：每个方向点开可看 4 条代表卡片（优先带自己想法的）；
+       点书名 / 主题词 / 标签 / 样本可直接跳回卡片库核对原文。
+    3) 行动清单：「未加工素材」列出摘录了却没写想法、也没挂到作品的卡片，
+       按书各取一条，作为下次动笔的入口。
+    4) 导出报告：一键下载 Markdown（含概览、观察与依据、阅读版图、方向沉淀、
+       主题词、两期对比、未加工素材、时间节律）。建议每月存一份，便于比较变化。
+
+    统计口径
+      - 主题词：仅正文的中文 2~4 字片段，按「覆盖多少张卡片」计数；已排除系统
+        标签（微信读书 / 划线）、章节编号、通用虚词与滑动窗口碎片（如书名被切成
+        「魏晋南北 / 晋南北朝」）。
+      - 方向：按可解释的关键词字典粗分，一张卡可属多个方向，仅供参照。
+      - 方向三层条共用同一刻度，可直接比长度：摘录 → 自己的想法 → 已挂作品。
+      - 作品 / 大纲 / 人物卡 / 草稿字数为全库口径；草稿只取每部作品最新版本。
+      - 时间节律按本机时区；所有数字来自本机 SQLite，不联网、不上传。
+
+    实现：insights.js 是纯 Node 零依赖模块，compute() 结果按范围缓存 60 秒；
+    report() 生成 Markdown，经 /api/insights/report 以 text/markdown 返回，
+    前端用 Blob 下载，不写入任何项目目录。
+
+十二、写作台（「作品」页，给写小说用的默认界面）
+  打开「作品」默认进入「写作」页，不再是先看到表单。五个页签：
+    写作 / 概览 / 大纲 / 人物 / 版本稿 / 素材
+
+  三栏布局
+    左：章节树。按 sort_order 排序，显示每章字数与状态（待写 / 初稿 / 修改中 /
+        定稿），悬停可上下移；下方「整稿版本」保留以前导入的第 N 稿，同样可编辑。
+    中：编辑器。章节标题、一句话梗概、正文；底部有字数、章节状态、
+        上一节 / 下一节、删除本节。
+    右：速查栏。本节素材 / 人物 / 全部三档，点素材或人物名直接插到光标处。
+        「本节素材」只显示通用素材和 slot=ch:<章节id> 的卡片。
+
+  自动保存（最重要的一条）
+    输入停止 1.2 秒即自动存盘，Ctrl+S 立即存；切换章节、切页签、切页面前会先
+    把没落盘的字写下去。保存只改数据库与几个数字，不重建页面，所以光标不跳。
+    顶部「✓ 已保存 / ● 未保存 / 保存中…」实时显示状态。
+    每次保存按字数差值记入 word_log（删改也算，记净增），用于码字统计。
+    页面关闭瞬间若仍有未保存内容，会用 keepalive 请求兜底。
+
+  大纲 → 正文
+    大纲页每个节拍点「开写 →」自动生成同名章节，节拍备注带入章节梗概，
+    并直接跳到写作台；已存在同名章节则复用，不会重复建。
+
+  进度与目标
+    顶部可填全书目标字数，进度条按章节累计字数（有章节时不再重复计整稿）。
+    「概览」页显示总字数、章节与定稿数、今日净增、连续动笔天数、近 14 天码字
+    柱状图。连续天数：今天还没写不算断，从昨天起算。
+
+  导出全文
+    「导出全文」把章节按顺序拼成一份 Markdown 下载（含标题、类型、立意、字数），
+    没有章节时导出整稿。适合交稿或另存备份。
+
+  数据兼容
+    旧库自动迁移：works 加 target_words；drafts 加 kind / sort_order / status /
+    synopsis；新增 word_log 表。原有「第 N 稿」一律标为 kind=version 保留，
+    不改动任何正文。全量导出 JSON 含 word_log，但合并导入不还原码字日志
+    （作品 id 会变，避免重复计数）。
+    统计口径：字数 = 去掉空白后的字符数；今日按本机时区，不用 UTC。
